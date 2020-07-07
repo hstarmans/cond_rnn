@@ -1,17 +1,24 @@
+import random
+
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.layers import GRU
 from tensorflow.keras.utils import to_categorical
-import random
+
 from cond_rnn import ConditionalRNN
 
 TIME_STEPS = 50
-NUM_CELLS = 24
+NUM_CELLS = 256
 
 
 class MySimpleModel(tf.keras.Model):
-    def __init__(self):
+    def __init__(self, use_conditions):
         super(MySimpleModel, self).__init__()
-        self.cond = ConditionalRNN(NUM_CELLS, cell='GRU', dtype=tf.float32)
+        if use_conditions:
+            self.cond = ConditionalRNN(NUM_CELLS, cell='GRU', dtype=tf.float32)
+        else:
+            # simple GRU.
+            self.cond = GRU(NUM_CELLS)
         self.out = tf.keras.layers.Dense(units=1, activation='linear')
 
     def call(self, inputs, **kwargs):
@@ -32,37 +39,45 @@ class Categorizer:
 
 class Batcher:
 
-    def __init__(self, x, y, cities, regions, city_conditions, region_conditions, batch_size):
+    def __init__(self, x, y, cities, regions, city_conditions, region_conditions, batch_size, use_conditions):
         # shuffle.
         random.seed(123)
         indexes = list(range(x.shape[0]))
         random.shuffle(indexes)
-
         self.x = x[indexes]
         self.y = y[indexes]
         self.cities = cities[indexes]
         self.regions = regions[indexes]
+        assert len(self.x) == len(self.y) == len(self.cities) == len(self.regions)
         self.city_conditions = city_conditions
         self.region_conditions = region_conditions
         self.batch_size = batch_size
         self.steps_per_epoch = self.x.shape[0] // self.batch_size
+        self.use_conditions = use_conditions
+        self.i = 0
 
     def generator(self):
-        for i in range(self.steps_per_epoch):
-            s = slice(i * self.batch_size, (i + 1) * self.batch_size)
+        while True:
+            if self.i == self.steps_per_epoch - 1:
+                self.i = 0
+            s = slice(self.i * self.batch_size, (self.i + 1) * self.batch_size)
             batch_x = self.x[s]
             batch_y = self.y[s]
             cities = self.cities[s]
             regions = self.regions[s]
             batch_cities = np.array([self.city_conditions.map[r] for r in cities])
             batch_regions = np.array([self.region_conditions.map[r] for r in regions])
-            x = batch_x, batch_cities, batch_regions
+            if self.use_conditions:
+                x = batch_x, batch_cities, batch_regions
+            else:
+                x = batch_x
             y = batch_y
-            i += 1
+            self.i += 1
             yield x, y
 
 
 def main():
+    use_conditions = True
     data = np.load('city_temperature.npz')
     cities = data['cities']
     regions = data['regions']
@@ -87,16 +102,35 @@ def main():
     x = temp[:, :-1, :]
     y = temp[:, -1:, :]
 
-    model = MySimpleModel()
+    model = MySimpleModel(use_conditions)
+    batch_size = 512
+    validation_split = 0.9
+    vs = int(validation_split * x.shape[0])
+    x_train = x[:vs]
+    y_train = y[:vs]
+    cities_train = cities[:vs]
+    regions_train = regions[:vs]
 
-    batcher = Batcher(x, y, cities, regions, city_conditions, region_conditions, 32)
-    generator = batcher.generator()
+    x_test = x[vs:]
+    y_test = y[vs:]
+    cities_test = cities[vs:]
+    regions_test = regions[vs:]
+
+    batcher_train = Batcher(x_train, y_train, cities_train, regions_train, city_conditions, region_conditions,
+                            batch_size, use_conditions)
+    batcher_test = Batcher(x_test, y_test, cities_test, regions_test, city_conditions, region_conditions, batch_size,
+                           use_conditions)
+
+    print(f'mean value loss test = {np.mean(np.abs(np.mean(x_test, axis=1).squeeze() - y_test.squeeze()))}')
+    print(f'last value loss test = {np.mean(np.abs(x_test[:, -1, :].squeeze() - y_test.squeeze()))}')
 
     model.compile(optimizer='adam', loss='mae')
     model.fit(
-        x=generator,
+        x=batcher_train.generator(),
         epochs=10,
-        steps_per_epoch=batcher.steps_per_epoch
+        steps_per_epoch=batcher_train.steps_per_epoch,
+        validation_steps=batcher_test.steps_per_epoch,
+        validation_data=batcher_test.generator()
     )
 
 
