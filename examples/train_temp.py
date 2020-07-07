@@ -1,4 +1,5 @@
 import random
+import sys
 
 import numpy as np
 import tensorflow as tf
@@ -77,13 +78,14 @@ class Batcher:
 
 
 def main():
-    use_conditions = True
+    use_conditions = bool(int(sys.argv[1]))
+    num_ts = int(sys.argv[2])
     data = np.load('city_temperature.npz')
-    cities = data['cities']
-    regions = data['regions']
+    cities = data['cities'][:num_ts]
+    regions = data['regions'][:num_ts]
+    x = data['temp'][:, :num_ts]  # (time, ts)
     city_conditions = Categorizer(cities)
     region_conditions = Categorizer(regions)
-    x = data['temp']  # (time, ts)
     temp = []
     for i in range(TIME_STEPS, x.shape[0]):
         temp.append(x[i - TIME_STEPS:i])
@@ -129,11 +131,12 @@ def main():
     model.compile(optimizer='adam', loss='mae')
     model.fit(
         x=batcher_train.generator(),
-        epochs=10,
+        epochs=1,
         steps_per_epoch=batcher_train.steps_per_epoch,
         validation_steps=batcher_test.steps_per_epoch,
         validation_data=batcher_test.generator()
     )
+    model.summary()
 
 
 if __name__ == '__main__':
