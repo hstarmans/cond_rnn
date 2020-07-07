@@ -123,6 +123,8 @@ def main():
 
     print(f'mean value loss test = {np.mean(np.abs(np.mean(x_test, axis=1).squeeze() - y_test.squeeze()))}')
     print(f'last value loss test = {np.mean(np.abs(x_test[:, -1, :].squeeze() - y_test.squeeze()))}')
+    print(f'mean value loss train = {np.mean(np.abs(np.mean(x_train, axis=1).squeeze() - y_train.squeeze()))}')
+    print(f'last value loss train = {np.mean(np.abs(x_train[:, -1, :].squeeze() - y_train.squeeze()))}')
 
     model.compile(optimizer='adam', loss='mae')
     model.fit(
