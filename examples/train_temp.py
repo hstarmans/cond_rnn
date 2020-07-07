@@ -128,10 +128,11 @@ def main():
     print(f'mean value loss train = {np.mean(np.abs(np.mean(x_train, axis=1).squeeze() - y_train.squeeze()))}')
     print(f'last value loss train = {np.mean(np.abs(x_train[:, -1, :].squeeze() - y_train.squeeze()))}')
 
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001 * 0.1)
     model.compile(optimizer='adam', loss='mae')
     model.fit(
         x=batcher_train.generator(),
-        epochs=1,
+        epochs=100,
         steps_per_epoch=batcher_train.steps_per_epoch,
         validation_steps=batcher_test.steps_per_epoch,
         validation_data=batcher_test.generator()
