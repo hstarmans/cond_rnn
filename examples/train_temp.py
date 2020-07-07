@@ -129,7 +129,7 @@ def main():
     print(f'last value loss train = {np.mean(np.abs(x_train[:, -1, :].squeeze() - y_train.squeeze()))}')
 
     opt = tf.keras.optimizers.Adam(learning_rate=0.001 * 0.1)
-    model.compile(optimizer='adam', loss='mae')
+    model.compile(optimizer=opt, loss='mae')
     model.fit(
         x=batcher_train.generator(),
         epochs=100,
