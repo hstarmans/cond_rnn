@@ -146,3 +146,5 @@ model_exog.update(test.Amsterdam, exogenous=test[top_cities[1:]], maxiter=0)
 _, test_resid = train_test_split(model_exog.resid(), test_size=test_size,
                                  shuffle=False)
 print(f"The MAE equals {np.mean(np.abs(test_resid)):.2f}")
+
+

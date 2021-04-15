@@ -28,7 +28,7 @@ import temp
 
 # settings
 cells = 200
-epochs = 1
+epochs = 40
 test_size = 0.2
 validation_split = 0  # we set to 0 for fair comparison with armax
 window = 100
@@ -37,7 +37,7 @@ random_state = 123  # random state  fixed for similar result, ideal is average
 df = temp.read_data(option='daily')
 # -
 
-# Again, we mainly look at the temperature in Amsterdam.
+# Again, I mainly look at the temperature in Amsterdam.
 
 df_city = (df.droplevel(level=['region', 'country'])
              .unstack(level='date').T.sort_index()
@@ -62,10 +62,11 @@ df_data = (df_city[top_cities[1:]].shift(1)
            )
 df_data.columns = df_data.columns.astype(str)
 
-# The dataset is transformed for machine learning.
+# The dataset is transformed for machine learning.  
 # Temperature is standard scaled and an input x is generated which contains
 #  the previous 100 values for the city of Amsterdam.
 # For the other cities, only the previous daily temperature is used.
+# Note, the code should also support multiple labels.
 
 # +
 LABELS = ['Amsterdam']
@@ -189,4 +190,11 @@ shap.force_plot(explainer.expected_value, shap_values[0], feature_names=FEATURES
 # The following code, can be used to get the Shap values in a convenient dataframe.
 
 df_shap = pd.Series(shap_values[0], index=FEATURES)
-df_shap.sort_values(ascending=False).head()
+df_shap.sort_values(ascending=False)
+
+# The model suffers from multi-collinairity. This result does not show that actually Brussel and Paris are very similar.
+# The model is able to create a good prediction, but the insight is not good. Brussels and Paris should have the same impact.
+
+df_cor[FEATURES][df_cor.index == LABELS[0]]
+
+
